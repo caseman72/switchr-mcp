@@ -1,0 +1,11 @@
+{
+  "domain": "switchr_mcp",
+  "name": "SwitchBot MCP",
+  "version": "1.0.0",
+  "documentation": "https://github.com/caseman72/switchr-mcp",
+  "dependencies": ["mcp"],
+  "codeowners": [],
+  "requirements": [],
+  "iot_class": "local_polling",
+  "config_flow": true
+}

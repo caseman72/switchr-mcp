@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.local
+.env*.local
+*.env.local
+
+# Config with potential secrets (use config.example.json as template)
+config.json
+
+# Device cache (may contain device IDs)
+.switchbot-devices.json
+
+# Logs
+*.log
+switchr-mcp-requests.log
+
+# Project specific
+.rcs/
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/

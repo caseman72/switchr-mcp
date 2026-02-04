@@ -1,0 +1,14 @@
+{
+  "server": {
+    "transport": "stdio",
+    "httpPort": 8001,
+    "httpHost": "127.0.0.1"
+  },
+  "devices": {
+    "refreshIntervalMinutes": 60
+  },
+  "monitoring": {
+    "enabled": false,
+    "logFile": "./switchr-mcp-requests.log"
+  }
+}
