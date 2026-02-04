@@ -17,9 +17,9 @@ config.json
 *.log
 switchr-mcp-requests.log
 
-# Project specific
-.rcs/
-.claude/
+# Project specific - exclude at any directory level
+**/.rcs/
+**/.claude/
 
 # OS files
 .DS_Store
