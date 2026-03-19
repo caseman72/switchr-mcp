@@ -20,6 +20,7 @@ switchr-mcp-requests.log
 # Project specific - exclude at any directory level
 **/.rcs/
 **/.claude/
+**/CLAUDE.md
 
 # OS files
 .DS_Store

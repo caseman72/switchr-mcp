@@ -1,5 +1,5 @@
 {
-  "name": "switchr-mcp",
+  "name": "@caseman72/switchr-mcp",
   "version": "1.0.0",
   "description": "MCP server for Switch Bot temperature sensors",
   "type": "module",
