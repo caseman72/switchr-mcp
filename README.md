@@ -103,7 +103,8 @@ mcp-proxy --port 8082 --host 0.0.0.0 -- node /path/to/switchr-mcp/src/index.js
 #### Entities created
 
 - **Temperature sensors** (`Meter`, `MeterPlus`, `WoIOSensor`): one combined entity per device with temperature as the native value and humidity/battery as attributes.
-- **Plug Mini**: four entities per plug — `<name> Power` (W), `<name> Voltage` (V), `<name> Current` (mA), and `<name> Energy` (kWh). The Energy entity integrates instantaneous power between polls and persists across HA restarts via `RestoreEntity`, so it can be used directly in the HA Energy dashboard with no Riemann helper.
+- **Plug Mini**: four sensors plus a switch — `<name> Power` (W), `<name> Voltage` (V), `<name> Current` (mA), `<name> Energy` (kWh), and `switch.<name>` (on/off control). The Energy entity integrates instantaneous power between polls and persists across HA restarts via `RestoreEntity`, so it can be used directly in the HA Energy dashboard with no Riemann helper.
+- **Bot** (finger simulator): `button.<name>_press` — sends a momentary press (extend then retract). Suitable for `pressMode` Bots.
 
 #### Auto-start mcp-proxy with launchd
 
