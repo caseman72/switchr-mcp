@@ -4,6 +4,8 @@ import { getConfig } from './config.js';
 let deviceCache = {
   devices: [],
   sensors: [],
+  plugs: [],
+  bots: [],
   lastRefresh: null
 };
 
@@ -32,6 +34,12 @@ export async function discoverDevices(forceRefresh = false) {
     d.deviceType === 'WoIOSensor'
   );
 
+  const plugs = devices.filter(d =>
+    /^Plug Mini/.test(d.deviceType) || d.deviceType === 'Plug'
+  );
+
+  const bots = devices.filter(d => d.deviceType === 'Bot');
+
   deviceCache = {
     devices: devices.map(d => ({
       id: d.deviceId,
@@ -42,6 +50,20 @@ export async function discoverDevices(forceRefresh = false) {
       raw: d
     })),
     sensors: sensors.map(d => ({
+      id: d.deviceId,
+      name: d.deviceName,
+      type: d.deviceType,
+      hubDeviceId: d.hubDeviceId,
+      raw: d
+    })),
+    plugs: plugs.map(d => ({
+      id: d.deviceId,
+      name: d.deviceName,
+      type: d.deviceType,
+      hubDeviceId: d.hubDeviceId,
+      raw: d
+    })),
+    bots: bots.map(d => ({
       id: d.deviceId,
       name: d.deviceName,
       type: d.deviceType,
@@ -60,6 +82,14 @@ export function getAllDevices() {
 
 export function getSensors() {
   return deviceCache.sensors;
+}
+
+export function getPlugs() {
+  return deviceCache.plugs;
+}
+
+export function getBots() {
+  return deviceCache.bots;
 }
 
 export function findDevice(idOrName) {
@@ -109,6 +139,37 @@ export async function getTemperature(sensor, unit = 'F') {
 export async function getAllTemperatures(unit = 'F') {
   const switchr = getSwitchrClient();
   return switchr.getAllTemperatures(unit);
+}
+
+export async function getPlugStatus(plug) {
+  const switchr = getSwitchrClient();
+  const status = await switchr.getPlugStatus(plug.id);
+  return {
+    id: plug.id,
+    name: plug.name,
+    type: plug.type,
+    ...status
+  };
+}
+
+export async function getAllPlugs() {
+  const switchr = getSwitchrClient();
+  return switchr.getAllPlugs();
+}
+
+export async function turnOn(deviceId) {
+  const switchr = getSwitchrClient();
+  return switchr.turnOn(deviceId);
+}
+
+export async function turnOff(deviceId) {
+  const switchr = getSwitchrClient();
+  return switchr.turnOff(deviceId);
+}
+
+export async function pressBot(deviceId) {
+  const switchr = getSwitchrClient();
+  return switchr.pressBot(deviceId);
 }
 
 export function getDeviceCache() {

@@ -4,8 +4,10 @@ A Node.js MCP (Model Context Protocol) server that exposes SwitchBot temperature
 
 ## Features
 
-- **Device Discovery**: Automatically discovers all SwitchBot devices (Meter, MeterPlus, WoIOSensor)
+- **Device Discovery**: Automatically discovers all SwitchBot devices (Meter, MeterPlus, WoIOSensor, Plug Mini, Bot)
 - **Temperature Monitoring**: Read temperature and humidity from any sensor
+- **Energy Monitoring**: Read power, voltage, and current from Plug Mini devices (UPS/load monitoring)
+- **Switching**: Turn plugs on/off, press Bot finger simulators
 - **Flexible Units**: Support for both Fahrenheit and Celsius
 - **Device Lookup**: Find devices by ID or nickname (case-insensitive)
 - **Dual Transport**: Supports both stdio (Claude Desktop) and HTTP/SSE (Home Assistant)
@@ -97,6 +99,11 @@ mcp-proxy --port 8082 --host 0.0.0.0 -- node /path/to/switchr-mcp/src/index.js
 4. Enter connection details:
    - Host: `host.docker.internal` (for Docker) or your Mac's IP
    - Port: `8082`
+
+#### Entities created
+
+- **Temperature sensors** (`Meter`, `MeterPlus`, `WoIOSensor`): one combined entity per device with temperature as the native value and humidity/battery as attributes.
+- **Plug Mini**: four entities per plug — `<name> Power` (W), `<name> Voltage` (V), `<name> Current` (mA), and `<name> Energy` (kWh). The Energy entity integrates instantaneous power between polls and persists across HA restarts via `RestoreEntity`, so it can be used directly in the HA Energy dashboard with no Riemann helper.
 
 #### Auto-start mcp-proxy with launchd
 
@@ -213,6 +220,38 @@ Get temperature and humidity readings from all SwitchBot temperature sensors at 
 
 **Parameters:**
 - `unit` (optional): Temperature unit - `F` for Fahrenheit (default), `C` for Celsius
+
+### `get_plug_status`
+
+Get power state and energy data from a SwitchBot Plug Mini. Use for UPS/energy monitoring.
+
+**Parameters:**
+- `deviceId`: Device ID or device name of the plug
+
+**Response includes:**
+- `power`: `"on"` or `"off"`
+- `voltage`: Volts
+- `watts`: Instantaneous power draw (W)
+- `currentMilliamps`: Current draw (mA)
+- `electricityOfDay`: Today's on-time accumulator from the device
+
+### `get_all_plugs`
+
+Get power and energy readings from all SwitchBot Plug Mini devices at once.
+
+### `turn_on` / `turn_off`
+
+Turn a SwitchBot Plug Mini (or a Bot in switch mode) on/off.
+
+**Parameters:**
+- `deviceId`: Device ID or device name
+
+### `press_bot`
+
+Send a momentary press to a SwitchBot Bot (finger simulator). The finger extends then retracts.
+
+**Parameters:**
+- `deviceId`: Device ID or device name of the Bot
 
 ### `get_api_status`
 

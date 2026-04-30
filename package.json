@@ -1,6 +1,6 @@
 {
   "name": "@caseman72/switchr-mcp",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "MCP server for Switch Bot temperature sensors",
   "type": "module",
   "main": "src/index.js",
@@ -16,7 +16,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@caseman72/switchr-api": "^1.0.2",
+    "@caseman72/switchr-api": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.25.0"
   }
