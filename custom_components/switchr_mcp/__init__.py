@@ -1,10 +1,4 @@
-"""SwitchBot MCP Integration for Home Assistant.
-
-Scope (1.1.4): temperature sensors (Meter / MeterPlus / WoIOSensor) and
-Bot finger-press buttons. Plug Mini entities were removed in 1.1.4 to
-move them to the standard HA SwitchBot integration in BLE mode (avoids
-SwitchBot Cloud rate-limit pressure on this account).
-"""
+"""SwitchBot MCP Integration for Home Assistant."""
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -12,10 +6,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 
 from .const import DOMAIN, DEFAULT_HOST, DEFAULT_PORT, CONF_MCP_HOST, CONF_MCP_PORT
+from .coordinator import PlugCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH, Platform.BUTTON]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -25,9 +20,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data.get(CONF_MCP_HOST, DEFAULT_HOST)
     port = entry.data.get(CONF_MCP_PORT, DEFAULT_PORT)
 
+    plug_coordinator = PlugCoordinator(hass, host, port)
+    await plug_coordinator.async_config_entry_first_refresh()
+
     hass.data[DOMAIN][entry.entry_id] = {
         "host": host,
         "port": port,
+        "plug_coordinator": plug_coordinator,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

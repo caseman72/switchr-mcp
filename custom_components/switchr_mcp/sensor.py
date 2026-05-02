@@ -1,13 +1,12 @@
 """Sensor platform for SwitchBot MCP devices.
 
-Temperature sensors (Meter / MeterPlus / WoIOSensor) only — the plug
-entities were removed in 1.1.4. Plug monitoring now happens through the
-standard HA SwitchBot integration in BLE mode (via an ESPHome
-bluetooth_proxy near the plug), which keeps cloud-API call volume on
-this account well under SwitchBot's daily rate limit.
+Plug Mini sensors (Power/Voltage/Current/Energy) read from a shared
+PlugCoordinator that does one `get_all_plugs` call per cycle. Temperature
+sensors (Meter/MeterPlus/WoIOSensor) still poll individually since their
+cadence is slower and they aren't bunched per-device.
 """
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -15,16 +14,22 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.const import (
+    UnitOfTemperature,
+    UnitOfElectricPotential,
+    UnitOfPower,
+    UnitOfElectricCurrent,
+    UnitOfEnergy,
+)
 
 from .const import DOMAIN
+from .coordinator import PlugCoordinator
 from .mcp_client import call_mcp_tool, fetch_devices
 
-# 120s = 6 calls/min for 12 temp sensors = ~8.6K/day, safely under
-# SwitchBot's ~10K/day per-account rate limit. This is the rate that
-# ran indefinitely before yesterday's plug entities pushed us over.
 SCAN_INTERVAL = timedelta(seconds=120)
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,10 +40,11 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up SwitchBot MCP temperature sensors from a config entry."""
+    """Set up SwitchBot MCP sensors from a config entry."""
     data = hass.data[DOMAIN][entry.entry_id]
     host = data["host"]
     port = data["port"]
+    plug_coordinator: PlugCoordinator = data["plug_coordinator"]
 
     devices = await fetch_devices(host, port)
 
@@ -47,6 +53,11 @@ async def async_setup_entry(
         device_type = device.get("type", "")
         if device_type in ("Meter", "MeterPlus", "WoIOSensor"):
             entities.append(WoIOSensor(host, port, device))
+        elif device_type.startswith("Plug Mini") or device_type == "Plug":
+            entities.append(PlugMiniPower(plug_coordinator, device))
+            entities.append(PlugMiniVoltage(plug_coordinator, device))
+            entities.append(PlugMiniCurrent(plug_coordinator, device))
+            entities.append(PlugMiniEnergy(plug_coordinator, device))
 
     async_add_entities(entities)
 
@@ -94,3 +105,126 @@ class WoIOSensor(SensorEntity):
                 "device_id": self._device_id,
                 "device_type": result.get("type"),
             }
+
+
+class PlugMiniBase(CoordinatorEntity[PlugCoordinator], SensorEntity):
+    """Base for Plug Mini sensors that read from PlugCoordinator."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _suffix = ""
+    _value_key = ""
+
+    def __init__(self, coordinator: PlugCoordinator, device: dict):
+        super().__init__(coordinator)
+        self._device_id = device["id"]
+        self._device_name = device["name"]
+        self._attr_name = f"{self._device_name} {self._suffix}"
+        self._attr_unique_id = f"switchr_{self._device_id}_{self._suffix.lower()}"
+
+    @property
+    def _plug(self) -> dict:
+        return (self.coordinator.data or {}).get(self._device_id) or {}
+
+    @property
+    def native_value(self):
+        return self._plug.get(self._value_key)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        plug = self._plug
+        return {
+            "power_state": plug.get("power"),
+            "device_id": self._device_id,
+        }
+
+
+class PlugMiniPower(PlugMiniBase):
+    """Instantaneous power draw (W) for a SwitchBot Plug Mini."""
+
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_icon = "mdi:flash"
+    _suffix = "Power"
+    _value_key = "watts"
+
+
+class PlugMiniVoltage(PlugMiniBase):
+    """Line voltage (V) for a SwitchBot Plug Mini."""
+
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_icon = "mdi:sine-wave"
+    _suffix = "Voltage"
+    _value_key = "voltage"
+
+
+class PlugMiniCurrent(PlugMiniBase):
+    """Current draw (mA) for a SwitchBot Plug Mini."""
+
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.MILLIAMPERE
+    _attr_icon = "mdi:current-ac"
+    _suffix = "Current"
+    _value_key = "currentMilliamps"
+
+
+class PlugMiniEnergy(CoordinatorEntity[PlugCoordinator], SensorEntity, RestoreEntity):
+    """Cumulative energy (kWh) for a SwitchBot Plug Mini.
+
+    Trapezoidal integration of instantaneous power between successive
+    coordinator updates. Persists across HA restarts via RestoreEntity.
+    Suitable for the HA Energy dashboard (TOTAL_INCREASING, kWh).
+    """
+
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_suggested_display_precision = 3
+
+    def __init__(self, coordinator: PlugCoordinator, device: dict):
+        super().__init__(coordinator)
+        self._device_id = device["id"]
+        self._device_name = device["name"]
+        self._attr_name = f"{self._device_name} Energy"
+        self._attr_unique_id = f"switchr_{self._device_id}_energy"
+        self._total_kwh = 0.0
+        self._last_update: datetime | None = None
+        self._last_watts: float | None = None
+        self._attr_native_value = 0.0
+        self._attr_extra_state_attributes = {}
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in (None, "unknown", "unavailable"):
+            try:
+                self._total_kwh = float(last.state)
+                self._attr_native_value = round(self._total_kwh, 4)
+            except (ValueError, TypeError):
+                pass
+        # Apply current coordinator data immediately on add
+        self._handle_coordinator_update()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        plug = (self.coordinator.data or {}).get(self._device_id) or {}
+        watts = plug.get("watts")
+        if watts is None:
+            super()._handle_coordinator_update()
+            return
+
+        now = datetime.now(timezone.utc)
+        if self._last_update is not None and self._last_watts is not None:
+            dt_hours = (now - self._last_update).total_seconds() / 3600
+            avg_watts = (watts + self._last_watts) / 2
+            self._total_kwh += (avg_watts * dt_hours) / 1000
+
+        self._last_update = now
+        self._last_watts = watts
+        self._attr_native_value = round(self._total_kwh, 4)
+        self._attr_extra_state_attributes = {
+            "current_watts": watts,
+            "device_id": self._device_id,
+        }
+        super()._handle_coordinator_update()
