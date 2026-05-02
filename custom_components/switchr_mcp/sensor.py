@@ -22,9 +22,10 @@ from homeassistant.const import UnitOfTemperature
 from .const import DOMAIN
 from .mcp_client import call_mcp_tool, fetch_devices
 
-# 180s gives ~6 calls/min when paired with N temp sensors, leaving safe
-# headroom under SwitchBot's ~10K/day per-account rate limit.
-SCAN_INTERVAL = timedelta(seconds=180)
+# 120s = 6 calls/min for 12 temp sensors = ~8.6K/day, safely under
+# SwitchBot's ~10K/day per-account rate limit. This is the rate that
+# ran indefinitely before yesterday's plug entities pushed us over.
+SCAN_INTERVAL = timedelta(seconds=120)
 
 _LOGGER = logging.getLogger(__name__)
 
