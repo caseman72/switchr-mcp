@@ -30,7 +30,7 @@ from .const import DOMAIN
 from .coordinator import PlugCoordinator
 from .mcp_client import call_mcp_tool, fetch_devices
 
-SCAN_INTERVAL = timedelta(seconds=120)
+SCAN_INTERVAL = timedelta(seconds=180)
 
 _LOGGER = logging.getLogger(__name__)
 
